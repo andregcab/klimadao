@@ -1,6 +1,7 @@
 import { ethers, providers } from "ethers";
 import { FC, useRef, useState, useEffect } from "react";
 import { Navigate, Routes, Route, Link, useLocation } from "react-router-dom";
+import { Button, Menu, MenuItem } from "@mui/material";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import Web3Modal from "web3modal";
 import { useAppDispatch } from "state";
@@ -120,6 +121,146 @@ const useProvider = (): [
   ];
 };
 
+const useIsMobile = (): { isMobile: boolean } => {
+  const [width, setWidth] = useState<number>(0);
+
+  useEffect(() => {
+    setWidth(window.innerWidth);
+
+    const handleWindowSizeChange = () => {
+      setWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleWindowSizeChange);
+    return () => {
+      window.removeEventListener("resize", handleWindowSizeChange);
+    };
+  }, []);
+
+  const isMobile = width <= 425;
+
+  return { isMobile };
+};
+
+const Nav = ({ chainId, links }) => (
+  <nav className={styles.nav}>
+    {chainId === 80001 && (
+      <p className={styles.testnet_warning}>
+        ⚠️You are connected to <strong>testnet</strong>
+        <br />
+        <em>{`"where everything is made up and the points don't matter."`}</em>
+      </p>
+    )}
+    {links.map((link) => {
+      return (
+        link.show && (
+          <Link
+            className={styles.textButton}
+            to={link.to}
+            data-active={link.dataActive}
+          >
+            {link.text}
+          </Link>
+        )
+      );
+    })}
+  </nav>
+);
+
+const WalletAction = ({ isConnected, loadWeb3Modal, disconnect }) => {
+  return !isConnected ? (
+    <button
+      type="button"
+      className={styles.connectWalletButton}
+      onClick={loadWeb3Modal}
+    >
+      CONNECT WALLET
+    </button>
+  ) : (
+    <button
+      type="button"
+      className={styles.disconnectWalletButton}
+      onClick={disconnect}
+    >
+      DISCONNECT WALLET
+    </button>
+  );
+};
+
+interface Link {
+  to: string;
+  show: boolean;
+  text: string;
+  dataActive: boolean;
+}
+
+interface Props {
+  links: [Link];
+  isConnected: boolean;
+  loadWeb3Modal: LoadWeb3Modal;
+  disconnect: () => Promise<void>;
+}
+
+const BasicMenu: FC<Props> = ({
+  links,
+  isConnected,
+  loadWeb3Modal,
+  disconnect,
+}) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <div>
+      <Button
+        id="basic-button"
+        aria-controls="basic-menu"
+        aria-haspopup="true"
+        aria-expanded={open ? "true" : undefined}
+        onClick={handleClick}
+      >
+        Dashboard
+      </Button>
+      <Menu
+        id="basic-menu"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        MenuListProps={{
+          "aria-labelledby": "basic-button",
+        }}
+      >
+        <WalletAction
+          isConnected={isConnected}
+          loadWeb3Modal={loadWeb3Modal}
+          disconnect={disconnect}
+        />
+        {links.map(({ dataActive, to, text, show }) => {
+          return (
+            <MenuItem key={text} onClick={handleClose}>
+              {show && (
+                <Link
+                  className={styles.textButton}
+                  to={to}
+                  data-active={dataActive}
+                >
+                  {text}
+                </Link>
+              )}
+            </MenuItem>
+          );
+        })}
+      </Menu>
+    </div>
+  );
+};
+
 export const Home: FC = () => {
   const dispatch = useAppDispatch();
   const [chainId, setChainId] = useState<number>();
@@ -129,7 +270,8 @@ export const Home: FC = () => {
   const { pathname } = useLocation();
   const [path, setPath] = useState("");
   const balances = useSelector(selectBalances);
-
+  const { isMobile } = useIsMobile();
+  console.log("home rendering");
   /**
    * This is a hack to force re-render of nav component
    * because SSR hydration doesn't show active path
@@ -264,63 +406,45 @@ export const Home: FC = () => {
 
   // render the nav twice-- on both sides of screen-- but the second one is hidden.
   // A hack to keep the card centered in the viewport.
-  const nav = (
-    <nav className={styles.nav}>
-      {chainId === 80001 && (
-        <p className={styles.testnet_warning}>
-          ⚠️You are connected to <strong>testnet</strong>
-          <br />
-          <em>{`"where everything is made up and the points don't matter."`}</em>
-        </p>
-      )}
-      {showRedeemButton && (
-        <Link
-          className={styles.textButton}
-          to="/redeem"
-          data-active={path === "/redeem"}
-        >
-          REDEEM
-        </Link>
-      )}
-      <Link
-        className={styles.textButton}
-        to="/stake"
-        data-active={path === "/stake"}
-      >
-        STAKE
-      </Link>
-      <Link
-        className={styles.textButton}
-        to="/wrap"
-        data-active={path === "/wrap"}
-      >
-        WRAP
-      </Link>
-      <Link
-        className={styles.textButton}
-        to="/bonds"
-        data-active={path.includes("/bonds")}
-      >
-        BOND
-      </Link>
-      <Link
-        className={styles.textButton}
-        to="/info"
-        data-active={path === "/info"}
-      >
-        INFO
-      </Link>
-      {showPklimaButton && (
-        <Link
-          className={styles.textButton}
-          to="/pklima"
-          data-active={path === "/pklima"}
-        >
-          pKLIMA
-        </Link>
-      )}
-    </nav>
-  );
+
+  const links = [
+    {
+      to: "/redeem",
+      show: showRedeemButton,
+      text: "REDEEM",
+      dataActive: path === "/redeem",
+    },
+    {
+      to: "/stake",
+      show: true,
+      text: "STAKE",
+      dataActive: path === "/stake",
+    },
+    {
+      to: "/wrap",
+      show: true,
+      text: "WRAP",
+      dataActive: path === "/wrap",
+    },
+    {
+      to: "/bond",
+      show: true,
+      text: "BOND",
+      dataActive: path.includes("/bonds"),
+    },
+    {
+      to: "/info",
+      show: true,
+      text: "INFO",
+      dataActive: path === "/info",
+    },
+    {
+      to: "/pklima",
+      show: showPklimaButton,
+      text: "pKLIMA",
+      dataActive: path === "/pklima",
+    },
+  ];
 
   return (
     <>
@@ -342,27 +466,24 @@ export const Home: FC = () => {
                 to earn interest.
               </p>
             </div>
-            {!isConnected && (
-              <button
-                type="button"
-                className={styles.connectWalletButton}
-                onClick={loadWeb3Modal}
-              >
-                CONNECT WALLET
-              </button>
+            {isMobile && (
+              <BasicMenu
+                links={links}
+                isConnected={isConnected}
+                loadWeb3Modal={loadWeb3Modal}
+                disconnect={disconnect}
+              />
             )}
-            {isConnected && (
-              <button
-                type="button"
-                className={styles.disconnectWalletButton}
-                onClick={disconnect}
-              >
-                DISCONNECT WALLET
-              </button>
+            {!isMobile && (
+              <WalletAction
+                isConnected={isConnected}
+                loadWeb3Modal={loadWeb3Modal}
+                disconnect={disconnect}
+              />
             )}
           </header>
           <main className={styles.main}>
-            {nav}
+            {!isMobile && <Nav links={links} chainId={chainId} />}
             <Routes>
               <Route
                 path="/"
@@ -435,7 +556,9 @@ export const Home: FC = () => {
                 );
               })}
             </Routes>
-            <div className={styles.invisibleColumn}>{nav}</div>
+            <div className={styles.invisibleColumn}>
+              {<Nav links={links} chainId={chainId} />}
+            </div>
           </main>
         </div>
         <footer className={styles.footer}>
