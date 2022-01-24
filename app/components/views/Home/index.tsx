@@ -26,6 +26,7 @@ import { generateLinks, LoadWeb3Modal } from "./constants";
 import Nav from "./Nav";
 import WalletAction from "./WalletAction";
 import MobileMenu from "./MobileMenu";
+import SideBar from "./SideBar";
 
 import { Trans } from "@lingui/macro";
 import { init } from "lib/i18n";
@@ -296,6 +297,7 @@ export const Home: FC = () => {
 
   return (
     <>
+      <SideBar />
       <div className={styles.container}>
         <div className={styles.heroBackgroundContainer}>
           <img src="/green-wormhole.jpg" alt="" />
